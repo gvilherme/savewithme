@@ -1,0 +1,76 @@
+name: Feature → PR to dev
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+concurrency:
+  group: feature-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || 21 }}
+          cache: maven
+      - name: Unit tests
+        working-directory: app
+        run: mvn -B -U -ntp -DskipITs verify
+
+  open-pr:
+    needs: test
+    if: ${{ needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure PR from feature → dev exists (or create)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const featureRef = context.ref.replace('refs/heads/','');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            // Search existing open PRs from this branch to dev
+            const { data: prs } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'dev', head: `${owner}:${featureRef}`
+            });
+            if (prs.length > 0) {
+              core.info(`PR already exists: #${prs[0].number}`);
+              return;
+            }
+            // Use first commit message line as title fallback
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner, repo, sha: featureRef, per_page: 1
+            });
+            const defaultTitle = commits[0]?.commit?.message?.split('\n')[0] || `feat: ${featureRef}`;
+            const prTitle = defaultTitle;
+            const prBody = [
+              '### Objetivo',
+              '- PR automático de `feature/*` para `dev` após testes unitários passarem.',
+              '',
+              '### Checklist',
+              '- [ ] Testes unitários verdes',
+              '- [ ] Descrição clara do escopo',
+              '- [ ] Segue Conventional Commits',
+            ].join('\n');
+            const { data: pr } = await github.rest.pulls.create({
+              owner, repo, title: prTitle, head: featureRef, base: 'dev', body: prBody, draft: false
+            });
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: pr.number, labels: ['area:domain','type:feat']
+            });
+            core.info(`Opened PR #${pr.number} from ${featureRef} -> dev`);

@@ -71,9 +71,7 @@ jobs:
           IMAGE_REF_DUMMY: "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000000"
         run: |
           terraform plan \
-            -backend=false \
-            -input=false \
-            -no-color \
+            -input=false -no-color \
             -var-file "inventories/dev.tfvars" \
             -var "image_ref=${IMAGE_REF_DUMMY}"
 

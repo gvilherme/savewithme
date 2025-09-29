@@ -25,6 +25,11 @@ jobs:
       - name: Unit tests
         working-directory: app
         run: mvn -B -U -ntp -DskipITs verify
+      - name: Lint (Spotless & Checkstyle)
+        working-directory: app
+        run: |
+          mvn -B -ntp -DskipTests spotless:check || true
+          mvn -B -ntp -DskipTests checkstyle:check || true
 
   open-pr:
     needs: test

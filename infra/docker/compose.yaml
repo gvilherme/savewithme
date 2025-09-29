@@ -20,17 +20,14 @@ services:
       context: ../..
       dockerfile: infra/docker/Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/savewithme
-      SPRING_DATASOURCE_USERNAME: savewithme
-      SPRING_DATASOURCE_PASSWORD: savewithme
-      SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-dev}
+      SPRING_PROFILES_ACTIVE: dev
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5

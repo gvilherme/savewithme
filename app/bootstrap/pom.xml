@@ -1,16 +1,18 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>br.com.gtechnologia.savewithme</groupId>
         <artifactId>savewithme-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
+
     <modelVersion>4.0.0</modelVersion>
     <artifactId>bootstrap</artifactId>
+
     <dependencies>
+        <!-- seus módulos/adapters -->
         <dependency>
             <groupId>br.com.gtechnologia.savewithme</groupId>
             <artifactId>adapters-in-rest</artifactId>
@@ -21,25 +23,45 @@
             <artifactId>adapters-out-persistence</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- spring boot runtime -->
         <dependency>
-            <groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- testes -->
         <dependency>
-            <groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <finalName>bootstrap</finalName>
         <plugins>
+            <!-- GERA o fat-jar executável e injeta MANIFEST (Start-Class) -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
-                    <layers><enabled>true</enabled></layers>
+                    <layers>
+                        <enabled>true</enabled>
+                    </layers>
+                    <!-- Opcional: seta explicitamente a main -->
+                    <mainClass>br.com.gtechnologia.savewithme.application.SaveWithMeApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

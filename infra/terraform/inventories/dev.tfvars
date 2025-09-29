@@ -3,7 +3,7 @@ project = "savewithme"
 env     = "dev"
 
 instance_type = "t4g.micro"
-key_name      = "YOUR_KEYPAIR_NAME"
+key_name      = "myslf"
 
 allowed_http_cidr = "177.181.4.242/32" 
 allowed_ssh_cidr  = "177.181.4.242/32"

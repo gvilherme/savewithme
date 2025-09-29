@@ -1,0 +1,75 @@
+#!/bin/bash
+set -euxo pipefail
+
+# 1) Sistema e Docker
+timedatectl set-timezone America/Sao_Paulo || true
+dnf update -y
+dnf install -y docker docker-buildx-plugin docker-compose-plugin awscli git
+systemctl enable --now docker
+
+# 2) Código do app (branch dev)
+su - ec2-user -c "mkdir -p /opt/savewithme"
+cd /opt/savewithme
+if [ ! -d ".git" ]; then
+  su - ec2-user -c "cd /opt/savewithme && git clone https://github.com/gvilherme/savewithme.git . && git checkout dev"
+else
+  su - ec2-user -c "cd /opt/savewithme && git fetch origin dev && git checkout dev && git reset --hard origin/dev"
+fi
+
+# 3) .env para o Compose (lido automaticamente pelo Compose)
+#    - IMAGE_REF: digest exato vindo do Terraform
+#    - SPRING_PROFILES_ACTIVE: controla o profile (pode mudar via inventories/*)
+cat >/opt/savewithme/.env <<'ENV'
+IMAGE_REF=${image_ref}
+SPRING_PROFILES_ACTIVE=dev
+DB_NAME=savewithme
+DB_USER=savewithme
+DB_PORT=5432
+ENV
+
+# 4) compose.override.yaml
+#    - Força a imagem do app por digest
+#    - (Opcional) sobrescreve profile pelo .env
+#    * Não mexemos em 'db.ports' aqui para evitar duplicidade; SG já bloqueia 5432 externo.
+cat >/opt/savewithme/compose.override.yaml <<'YAML'
+services:
+  app:
+    image: "${IMAGE_REF}"
+    environment:
+      SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE}"
+YAML
+
+# 5) Login no ECR e subir containers usando base + override, SEM build
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region ${region})
+aws ecr get-login-password --region ${region} \
+  | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com
+
+cd /opt/savewithme
+docker compose -f compose.yaml -f compose.override.yaml pull
+docker compose -f compose.yaml -f compose.override.yaml up -d --no-build
+
+# 6) Script de backup pg_dump -> S3 (formato custom -Fc)
+cat >/usr/local/bin/pg_backup_s3.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+S3_BUCKET="${S3_BUCKET:-${backup_bucket}}"
+DB_NAME="${DB_NAME:-savewithme}"
+DB_USER="${DB_USER:-savewithme}"
+DB_PORT="${DB_PORT:-5432}"
+TS=$(date +%F-%H%M)
+OUT="/tmp/${DB_NAME}-${TS}.dump"
+
+CID=$(docker compose -f /opt/savewithme/compose.yaml -f /opt/savewithme/compose.override.yaml ps -q db)
+[ -z "$CID" ] && { echo "DB container not found (service 'db')."; exit 1; }
+
+# Executa pg_dump dentro do container do Postgres
+docker exec "$CID" pg_dump -Fc -U "$DB_USER" -h localhost -p "$DB_PORT" "$DB_NAME" > "$OUT"
+aws s3 cp "$OUT" "s3://${S3_BUCKET}/postgres/${DB_NAME}/${TS}.dump" --sse AES256
+shred -u "$OUT"
+echo "Backup OK: s3://${S3_BUCKET}/postgres/${DB_NAME}/${TS}.dump"
+SH
+chmod +x /usr/local/bin/pg_backup_s3.sh
+
+# 7) Variáveis globais + cron 19:50 seg–sex para backup
+echo 'export S3_BUCKET=${backup_bucket} DB_NAME=savewithme DB_USER=savewithme DB_PORT=5432' > /etc/profile.d/swm.sh
+(crontab -l 2>/dev/null; echo "50 19 * * 1-5 /usr/local/bin/pg_backup_s3.sh >> /var/log/pg_backup.log 2>&1") | crontab -

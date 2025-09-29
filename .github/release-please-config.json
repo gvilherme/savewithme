@@ -1,0 +1,15 @@
+{
+  "bootstrap-sha": "",
+  "release-type": "manifest",
+  "include-component-in-tag": false,
+  "packages": {
+    "app": {
+      "path": "app",
+      "release-type": "maven",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        "app/pom.xml"
+      ]
+    }
+  }
+}

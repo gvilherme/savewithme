@@ -14,7 +14,7 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -31,3 +31,17 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Infra ###
+infra/docker/dbdata/
+
+### Others ###
+*.log
+*.tmp
+*.swp
+*~
+*.swo
+*.DS_Store
+mvnw
+mvnw.cmd
+.gitattributes

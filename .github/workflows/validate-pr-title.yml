@@ -1,0 +1,30 @@
+name: Validate PR Title (Conventional Commits)
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # tipos aceitos (adapte se precisar)
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+          # escopo é opcional, mas força o formato <tipo>(<escopo opcional>): <mensagem>
+          requireScope: false
+          # breaking change pode ser sinalizado com !
+          allowBreakingChanges: true

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+    paths-ignore: [ "README.md", "LICENSE", "docs/**", ".github/**" ]
+  push:
+    branches: [ "main" ]
+    paths-ignore: [ "README.md", "LICENSE", "docs/**" ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_TOOLCHAIN_VERSION: ${{ vars.JAVA_TOOLCHAIN_VERSION || 21 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_TOOLCHAIN_VERSION }}
+          cache: maven
+      - name: Build & test
+        working-directory: app
+        run: mvn -B -U -ntp verify
+      - name: Jacoco report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: app/**/target/site/jacoco/

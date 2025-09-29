@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # 1) ARG global (vale para qualquer FROM)
-ARG BASE_IMAGE=public.ecr.aws/amazoncorretto:21-alpine
+ARG BASE_IMAGE=amazoncorretto:21-alpine
 
 # ---------- builder ----------
 FROM maven:3.9-eclipse-temurin-21 AS builder
@@ -27,7 +27,12 @@ FROM ${BASE_IMAGE} AS runtime
 
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
-COPY --from=builder /build/app/bootstrap/target/bootstrap-*.jar /app/app.jar
+
+# COPIE o JAR reempacotado (NÃO o original-*.jar)
+# se usou <finalName>bootstrap</finalName>:
+COPY --from=builder /build/app/bootstrap/target/bootstrap.jar /app/app.jar
+# (se não usar finalName, então copie com padrão: /build/app/bootstrap/target/bootstrap-*.jar)
+
 USER app
 EXPOSE 8080
 ENTRYPOINT ["java","-jar","/app/app.jar"]

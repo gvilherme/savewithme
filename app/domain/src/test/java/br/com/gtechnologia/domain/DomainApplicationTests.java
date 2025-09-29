@@ -1,4 +1,4 @@
-package br.com.gtechnologia.savewithme;
+package br.com.gtechnologia.domain;
 
 import org.junit.jupiter.api.Test;
 

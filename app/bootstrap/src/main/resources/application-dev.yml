@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: savewithme
+  datasource:
+    url: jdbc:postgresql://localhost:5432/savewithme
+    username: savewithme
+    password: savewithme
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info    # expõe só /actuator/health e /actuator/info
+  endpoint:
+    health:
+      show-details: always      # mostra detalhes no health (bom pra debug)
+  server:
+    port: 8080

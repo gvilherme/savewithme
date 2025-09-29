@@ -38,7 +38,7 @@ jobs:
           mvn -B -ntp -DskipTests spotless:check || true
           mvn -B -ntp -DskipTests checkstyle:check || true
 
-    tf-check:
+  tf-check:
     needs: test
     runs-on: ubuntu-latest
     permissions:
@@ -75,7 +75,6 @@ jobs:
             -no-color \
             -var-file "inventories/dev.tfvars" \
             -var "image_ref=${IMAGE_REF_DUMMY}"
-
 
   open-pr:
     needs: test

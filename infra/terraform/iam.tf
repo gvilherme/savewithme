@@ -2,10 +2,10 @@
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { 
-        type = "Service"
-     identifiers = ["ec2.amazonaws.com"]
-      }
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
   }
 }
 
@@ -17,17 +17,17 @@ resource "aws_iam_role" "ec2_role" {
 
 data "aws_iam_policy_document" "ec2_policy" {
   statement {
-    sid     = "EcrPull"
+    sid = "EcrPull"
     actions = [
-      "ecr:GetAuthorizationToken","ecr:BatchGetImage",
-      "ecr:GetDownloadUrlForLayer","ecr:BatchCheckLayerAvailability"
+      "ecr:GetAuthorizationToken", "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"
     ]
     resources = ["*"]
   }
   statement {
-    sid     = "S3BackupsWrite"
+    sid = "S3BackupsWrite"
     actions = [
-      "s3:PutObject","s3:AbortMultipartUpload","s3:GetBucketLocation","s3:ListBucket"
+      "s3:PutObject", "s3:AbortMultipartUpload", "s3:GetBucketLocation", "s3:ListBucket"
     ]
     resources = [
       "arn:aws:s3:::${var.backup_bucket}",
@@ -57,10 +57,10 @@ resource "aws_iam_instance_profile" "app_profile" {
 data "aws_iam_policy_document" "sched_assume" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { 
-        type = "Service"
-         identifiers = ["scheduler.amazonaws.com"]
-          }
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
   }
 }
 
@@ -72,7 +72,7 @@ resource "aws_iam_role" "sched_role" {
 
 data "aws_iam_policy_document" "sched_actions" {
   statement {
-    actions   = ["ec2:StartInstances","ec2:StopInstances","ec2:DescribeInstances"]
+    actions   = ["ec2:StartInstances", "ec2:StopInstances", "ec2:DescribeInstances"]
     resources = ["arn:aws:ec2:${var.region}:${data.aws_caller_identity.me.account_id}:instance/${aws_instance.app.id}"]
   }
 }

@@ -3,7 +3,7 @@ name: Feature → PR to dev
 on:
   push:
     branches:
-      - 'feature/**'
+      - "feature/**"
 
 concurrency:
   group: feature-${{ github.ref }}
@@ -11,7 +11,6 @@ concurrency:
 
 jobs:
   test:
-    environment: dev
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,53 +31,70 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
       - name: Lint (Spotless & Checkstyle)
         working-directory: app
         run: |
           mvn -B -ntp -DskipTests spotless:check || true
           mvn -B -ntp -DskipTests checkstyle:check || true
 
-    tf-check:
+  tf-check:
     needs: test
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
-    defaults:
-      run:
-        working-directory: infra
+      contents: write
+    env:
+      TF_DATA_DIR: ${{ github.workspace }}/.tfdata # isola dados do Terraform por job
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure AWS creds (OIDC, read-only)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.ROLE_ARN_PLAN }} 
+          role-to-assume: ${{ vars.ROLE_ARN_PLAN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform fmt & validate (local backend)
+      # 0) Remove backend config e zera qualquer init anterior
+      - name: Remove backend config (se existir)
+        run: rm -f infra/terraform/backend.tf infra/terraform/backend.hcl
+      - name: Clean previous Terraform init artifacts
         run: |
-          terraform fmt -check
-          terraform init -backend=false -input=false -no-color
-          terraform validate -no-color
+          rm -rf infra/terraform/.terraform infra/terraform/.terraform.lock.hcl
 
+      # 1) AUTO-FIX: fmt e commit
+      - name: Terraform fmt (auto-fix)
+        run: terraform -chdir=infra/terraform fmt -recursive -no-color
+
+      - name: Auto-commit Terraform fmt
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(terraform): fmt (auto)"
+          file_pattern: "infra/**/*.tf"
+
+      # 2) Init LOCAL (sem backend S3), com reconfigure
+      - name: Terraform init (local, no backend)
+        run: terraform -chdir=infra/terraform init -backend=false -reconfigure -input=false -no-color
+
+      # 3) Validate
+      - name: Terraform validate
+        run: terraform -chdir=infra/terraform validate -no-color
+
+      # 4) Plan LOCAL (usa state local gerado pelo init acima)
       - name: Terraform plan (no backend, no apply)
         env:
           IMAGE_REF_DUMMY: "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000000"
         run: |
-          terraform plan \
-            -backend=false \
-            -input=false \
-            -no-color \
-            -var-file "inventories/dev.tfvars" \
+          terraform -chdir=infra/terraform plan \
+            -input=false -no-color \
+            -var-file "./inventories/dev.tfvars" \
             -var "image_ref=${IMAGE_REF_DUMMY}"
 
-
   open-pr:
-    needs: test
+    needs: tf-check
     if: ${{ needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:

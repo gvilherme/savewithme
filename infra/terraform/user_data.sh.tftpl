@@ -4,8 +4,17 @@ set -euxo pipefail
 # 1) Sistema e Docker
 timedatectl set-timezone America/Sao_Paulo || true
 dnf update -y
-dnf install -y docker docker-buildx-plugin docker-compose-plugin awscli git
+dnf install -y docker awscli git || true
 systemctl enable --now docker
+usermod -aG docker ec2-user || true
+
+# 1.1) Compose V2 via binário oficial (ARM64/AMD64)
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then COMP_ARCH=arm64; else COMP_ARCH=amd64; fi
+install -d /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$${COMP_ARCH}" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 # 2) Código do app (branch dev)
 su - ec2-user -c "mkdir -p /opt/savewithme"

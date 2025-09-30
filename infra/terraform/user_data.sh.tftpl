@@ -34,15 +34,15 @@ ENV
 cat >/opt/savewithme/compose.override.yaml <<'YAML'
 services:
   app:
-    image: "${IMAGE_REF}"
+    image: "$${IMAGE_REF}"
     environment:
-      SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE}"
+      SPRING_PROFILES_ACTIVE: "$${SPRING_PROFILES_ACTIVE}"
 YAML
 
 # 5) Login no ECR e subir containers usando base + override, SEM build
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region ${region})
 aws ecr get-login-password --region ${region} \
-  | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com
+  | docker login --username AWS --password-stdin $${ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com
 
 cd /opt/savewithme
 docker compose -f compose.yaml -f compose.override.yaml pull
@@ -52,21 +52,21 @@ docker compose -f compose.yaml -f compose.override.yaml up -d --no-build
 cat >/usr/local/bin/pg_backup_s3.sh <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-S3_BUCKET="${S3_BUCKET:-${backup_bucket}}"
-DB_NAME="${DB_NAME:-savewithme}"
-DB_USER="${DB_USER:-savewithme}"
-DB_PORT="${DB_PORT:-5432}"
+S3_BUCKET="$${S3_BUCKET:-${backup_bucket}}"
+DB_NAME="$${DB_NAME:-savewithme}"
+DB_USER="$${DB_USER:-savewithme}"
+DB_PORT="$${DB_PORT:-5432}"
 TS=$(date +%F-%H%M)
-OUT="/tmp/${DB_NAME}-${TS}.dump"
+OUT="/tmp/$${DB_NAME}-$${TS}.dump"
 
 CID=$(docker compose -f /opt/savewithme/compose.yaml -f /opt/savewithme/compose.override.yaml ps -q db)
 [ -z "$CID" ] && { echo "DB container not found (service 'db')."; exit 1; }
 
 # Executa pg_dump dentro do container do Postgres
 docker exec "$CID" pg_dump -Fc -U "$DB_USER" -h localhost -p "$DB_PORT" "$DB_NAME" > "$OUT"
-aws s3 cp "$OUT" "s3://${S3_BUCKET}/postgres/${DB_NAME}/${TS}.dump" --sse AES256
+aws s3 cp "$OUT" "s3://$${S3_BUCKET}/postgres/$${DB_NAME}/$${TS}.dump" --sse AES256
 shred -u "$OUT"
-echo "Backup OK: s3://${S3_BUCKET}/postgres/${DB_NAME}/${TS}.dump"
+echo "Backup OK: s3://$${S3_BUCKET}/postgres/$${DB_NAME}/$${TS}.dump"
 SH
 chmod +x /usr/local/bin/pg_backup_s3.sh
 

@@ -2,7 +2,7 @@ name: release-dev
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: ["main", "dev"]
   workflow_dispatch:
 
 concurrency:
@@ -16,10 +16,11 @@ permissions:
 
 env:
   JAVA_VERSION: ${{ vars.JAVA_TOOLCHAIN_VERSION || 21 }}
-  AWS_REGION:   ${{ vars.AWS_REGION }}
-  AWS_ACCOUNT:  ${{ vars.AWS_ACCOUNT_ID }}
-  ECR_REPO:     ${{ vars.ECR_REPO }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+  ECR_REPO: ${{ vars.ECR_REPO }}
   DOCKER_IMAGE_BASE: ${{ vars.DOCKER_IMAGE_BASE }}
+  ENV_NAME: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'dev' }}
 
 jobs:
   test:
@@ -27,10 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: ${{ env.JAVA_VERSION }}, cache: maven }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
       - name: Unit tests
         working-directory: app
         run: mvn -B -U -ntp -DskipITs verify
@@ -42,7 +44,7 @@ jobs:
 
   build-and-push:
     needs: test
-    environment: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'dev' }}
+    environment: ${{ env.ENV_NAME }}
     runs-on: ubuntu-latest
     outputs:
       image_ref: ${{ steps.record.outputs.image_ref }}
@@ -58,9 +60,11 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: ${{ env.JAVA_VERSION }}, cache: maven }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
 
       - name: Build JAR
         working-directory: app
@@ -70,7 +74,7 @@ jobs:
         working-directory: infra/docker
         env:
           IMAGE: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}
-          TAG:   ${{ github.sha }}   # SHA completo – mais simples de casar
+          TAG: ${{ github.sha }}
         run: |
           docker buildx create --use
           docker buildx build \
@@ -87,22 +91,18 @@ jobs:
         id: record
         env:
           IMAGE: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}
-          TAG:   ${{ github.sha }}
+          TAG: ${{ github.sha }}
         run: |
-          # pega o digest do manifest multi-arch que acabamos de publicar
           DIGEST=$(docker buildx imagetools inspect ${IMAGE}:${TAG} | awk '/Digest:/ {print $2; exit}')
           echo "image_ref=${IMAGE}@${DIGEST}" >> $GITHUB_OUTPUT
           echo "Resolved image: ${IMAGE}@${DIGEST}"
-
-      - name: WhoAmI (AWS)
-        run: aws sts get-caller-identity
 
   terraform:
     needs: build-and-push
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: infra/terraform
+        working-directory: infra
     steps:
       - uses: actions/checkout@v4
 
@@ -116,51 +116,44 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Generate backend.hcl
-        working-directory: infra/terraform
         run: |
           cat > backend.hcl <<EOF
           bucket  = "${{ vars.TF_STATE_BUCKET }}"
-          key     = "states/${{ github.ref }}.tfstate"
-          region  = "${{ vars.AWS_REGION }}"
+          key     = "env/${{ env.ENV_NAME }}/terraform.tfstate"
+          region  = "${{ env.AWS_REGION }}"
           encrypt = true
           EOF
           cat backend.hcl
 
       - name: Terraform init/validate
-        working-directory: infra/terraform
         run: |
           terraform fmt -check
           terraform init -backend-config=backend.hcl
           terraform validate
 
       - name: Terraform plan
-        working-directory: infra/terraform
-        run: |
-          VARFILE="inventories/${{ env.ENV_NAME }}.tfvars"
-          terraform plan -var-file="$VARFILE" \
-            -var "image_ref=${{ needs.build-and-push.outputs.image_ref }}" \
-            -out tfplan
+        run: terraform plan -var-file "inventories/${{ env.ENV_NAME }}.tfvars" -var "image_ref=${{ needs.build-and-push.outputs.image_ref }}" -out tfplan
 
       - name: Terraform apply
-        working-directory: infra/terraform
         run: terraform apply -auto-approve tfplan
 
   open-pr:
     needs: terraform
-    if: ${{ needs.terraform.result == 'success' && startsWith(github.ref, 'refs/heads/dev') }}
+    if: ${{ needs.terraform.result == 'success' && startsWith(github.ref,'refs/heads/dev') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-
       - name: Ensure PR from dev → main exists (or create)
         uses: actions/github-script@v7
         with:
           script: |
+            const devRef = context.ref.replace('refs/heads/','');
             const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const devRef = context.ref.replace('refs/heads/',''); // 'dev'
+            const repo = context.repo.repo;
 
-            // procurar PRs abertos de dev -> main
             const { data: prs } = await github.rest.pulls.list({
               owner, repo, state: 'open', base: 'main', head: `${owner}:${devRef}`
             });
@@ -169,12 +162,10 @@ jobs:
               return;
             }
 
-            // título padrão do último commit
             const { data: commits } = await github.rest.repos.listCommits({
               owner, repo, sha: devRef, per_page: 1
             });
             const defaultTitle = commits[0]?.commit?.message?.split('\n')[0] || `feat: ${devRef}`;
-
             const body = [
               '### Objetivo',
               '- PR automático de `dev` para `main` após pipeline verde.',

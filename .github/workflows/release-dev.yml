@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ vars.JAVA_VERSION }}
           cache: maven
       - name: Unit tests
         working-directory: app
@@ -48,8 +48,8 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ vars.JAVA_VERSION }}
           cache: maven
 
       - name: Build JAR
@@ -67,7 +67,7 @@ jobs:
       - name: Build + Push multi-arch (manifest)
         working-directory: infra/docker
         env:
-          IMAGE: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}
+          IMAGE: ${{ vars.AWS_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO }}
           TAG: ${{ github.sha }}
         run: |
           docker buildx create --use
@@ -84,7 +84,7 @@ jobs:
       - name: Resolve digest (immutable ref)
         id: record
         env:
-          IMAGE: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}
+          IMAGE: ${{ vars.AWS_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO }}
           TAG: ${{ github.sha }}
         run: |
           DIGEST=$(docker buildx imagetools inspect ${IMAGE}:${TAG} | awk '/Digest:/ {print $2; exit}')
@@ -105,8 +105,8 @@ jobs:
       - name: Configure AWS creds (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -114,9 +114,9 @@ jobs:
       - name: Generate backend.hcl
         run: |
           cat > backend.hcl <<EOF
-          bucket  = "${{ env.TF_STATE_BUCKET }}"
-          key     = "env/${{ env.ENV_NAME }}/terraform.tfstate"
-          region  = "${{ env.AWS_REGION }}"
+          bucket  = "${{ vars.TF_STATE_BUCKET }}"
+          key     = "env/${{ vars.ENV_NAME }}/terraform.tfstate"
+          region  = "${{ vars.AWS_REGION }}"
           encrypt = true
           EOF
           cat backend.hcl

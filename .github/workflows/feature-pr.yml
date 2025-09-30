@@ -61,12 +61,14 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform fmt & validate (local backend)
+        working-directory: infra/terraform
         run: |
           terraform fmt -check
           terraform init -backend=false -input=false -no-color
           terraform validate -no-color
 
       - name: Terraform plan (no backend, no apply)
+        working-directory: infra/terraform
         env:
           IMAGE_REF_DUMMY: "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000000"
         run: |
@@ -75,8 +77,33 @@ jobs:
             -var-file "inventories/dev.tfvars" \
             -var "image_ref=${IMAGE_REF_DUMMY}"
 
-  open-pr:
+  check-title:
     needs: tf-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # tipos aceitos (adapte se precisar)
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+          # escopo é opcional, mas força o formato <tipo>(<escopo opcional>): <mensagem>
+          requireScope: false
+          # breaking change pode ser sinalizado com !
+          allowBreakingChanges: true
+
+  open-pr:
+    needs: check-title
     if: ${{ needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:

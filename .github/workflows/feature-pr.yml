@@ -58,40 +58,48 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 0) Remove backend config e zera qualquer init anterior
-      - name: Remove backend config (se existir)
-        run: rm -f infra/terraform/backend.tf infra/terraform/backend.hcl
-      - name: Clean previous Terraform init artifacts
-        run: |
-          rm -rf infra/terraform/.terraform infra/terraform/.terraform.lock.hcl
-
-      # 1) AUTO-FIX: fmt e commit
-      - name: Terraform fmt (auto-fix)
+      # (opcional) Auto-fix de fmt no repo original
+      - name: Terraform fmt (auto-fix no repo)
         run: terraform -chdir=infra/terraform fmt -recursive -no-color
-
       - name: Auto-commit Terraform fmt
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore(terraform): fmt (auto)"
           file_pattern: "infra/**/*.tf"
 
-      # 2) Init LOCAL (sem backend S3), com reconfigure
-      - name: Terraform init (local, no backend)
-        run: terraform -chdir=infra/terraform init -backend=false -reconfigure -input=false -no-color
+      # 1) Shadow copy da pasta de Terraform
+      - name: Make shadow copy of Terraform dir
+        id: shadow
+        run: |
+          TMP_DIR=$(mktemp -d)
+          echo "TMP_DIR=$TMP_DIR" >> $GITHUB_OUTPUT
+          rsync -a infra/terraform/ "$TMP_DIR"/
 
-      # 3) Validate
-      - name: Terraform validate
-        run: terraform -chdir=infra/terraform validate -no-color
+          # 2) Remove o bloco `backend "s3" { ... }` APENAS na cópia
+          # (remove um bloco com uma chave de profundidade 1)
+          perl -0777 -pe 's/^\s*backend\s+"s3"\s*\{[^}]*\}\s*\n//s' -i "$TMP_DIR"/providers.tf
 
-      # 4) Plan LOCAL (usa state local gerado pelo init acima)
-      - name: Terraform plan (no backend, no apply)
+          # Sanity: mostra o providers.tf resultante
+          echo "----- providers.tf (shadow) -----"
+          sed -n '1,120p' "$TMP_DIR"/providers.tf
+
+      # 3) Init local (sem backend) na cópia
+      - name: Terraform init (local, shadow)
+        run: terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} init -backend=false -reconfigure -input=false -no-color
+
+      # 4) Validate
+      - name: Terraform validate (shadow)
+        run: terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} validate -no-color
+
+      # 5) Plan local (shadow) usando tfvars do repo
+      - name: Terraform plan (shadow, no apply)
         env:
           IMAGE_REF_DUMMY: "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000000"
         run: |
-          terraform -chdir=infra/terraform plan \
+          terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} plan \
             -input=false -no-color \
-            -var-file "./inventories/dev.tfvars" \
-            -var "image_ref=${IMAGE_REF_DUMMY}"
+            -var-file="${{ github.workspace }}/inventories/dev.tfvars" \
+            -var="image_ref=${IMAGE_REF_DUMMY}"
 
   open-pr:
     needs: tf-check

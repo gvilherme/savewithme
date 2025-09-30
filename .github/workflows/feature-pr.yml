@@ -88,7 +88,6 @@ jobs:
         env:
           IMAGE_REF_DUMMY: "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000000"
         run: |
-          terraform -chdir=infra/terraform init -backend=false -reconfigure -input=false -no-color
           terraform -chdir=infra/terraform plan \
             -input=false -no-color \
             -var-file "../inventories/dev.tfvars" \

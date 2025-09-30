@@ -90,7 +90,7 @@ jobs:
         run: |
           terraform -chdir=infra/terraform plan \
             -input=false -no-color \
-            -var-file "../inventories/dev.tfvars" \
+            -var-file "./inventories/dev.tfvars" \
             -var "image_ref=${IMAGE_REF_DUMMY}"
 
   check-title:

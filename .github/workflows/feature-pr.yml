@@ -71,7 +71,7 @@ jobs:
 
       - name: Terraform init/validate (local state)
         run: |
-          terraform init -backend=false -input=false -no-color
+          terraform init -backend=false -reconfigure -input=false -no-color
           terraform validate -no-color
 
       - name: Terraform plan (no backend, no apply)

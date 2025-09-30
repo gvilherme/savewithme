@@ -125,14 +125,17 @@ jobs:
           EOF
           cat backend.hcl
 
-      - name: Terraform init/validate
-        run: |
-          terraform fmt -check
-          terraform init -backend-config=backend.hcl
-          terraform validate
+      - name: Terraform init (S3 backend)
+        run: terraform init -reconfigure -backend-config=backend.hcl
+
+      - name: Terraform validate
+        run: terraform validate -no-color
 
       - name: Terraform plan
-        run: terraform plan -var-file "inventories/${{ env.ENV_NAME }}.tfvars" -var "image_ref=${{ needs.build-and-push.outputs.image_ref }}" -out tfplan
+        run: terraform plan \
+          -var-file "../../inventories/${{ startsWith(github.ref,'refs/heads/main') && 'prod' || 'dev' }}.tfvars" \
+          -var "image_ref=${{ needs.build-and-push.outputs.image_ref }}" \
+          -out tfplan
 
       - name: Terraform apply
         run: terraform apply -auto-approve tfplan

@@ -14,14 +14,6 @@ permissions:
   contents: read
   pull-requests: write
 
-env:
-  JAVA_VERSION: ${{ vars.JAVA_TOOLCHAIN_VERSION || 21 }}
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
-  ECR_REPO: ${{ vars.ECR_REPO }}
-  DOCKER_IMAGE_BASE: ${{ vars.DOCKER_IMAGE_BASE }}
-  ENV_NAME: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'dev' }}
-
 jobs:
   test:
     if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
@@ -46,7 +38,7 @@ jobs:
   build-and-push:
     if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
     needs: test
-    environment: ${{ env.ENV_NAME }}
+    environment: dev
     runs-on: ubuntu-latest
     outputs:
       image_ref: ${{ steps.record.outputs.image_ref }}
@@ -56,7 +48,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.ROLE_ARN }}
+          role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -102,6 +94,7 @@ jobs:
   terraform:
     if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
     needs: build-and-push
+    environment: dev
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -112,7 +105,7 @@ jobs:
       - name: Configure AWS creds (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.ROLE_ARN }}
+          role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
@@ -121,7 +114,7 @@ jobs:
       - name: Generate backend.hcl
         run: |
           cat > backend.hcl <<EOF
-          bucket  = "${{ vars.TF_STATE_BUCKET }}"
+          bucket  = "${{ env.TF_STATE_BUCKET }}"
           key     = "env/${{ env.ENV_NAME }}/terraform.tfstate"
           region  = "${{ env.AWS_REGION }}"
           encrypt = true

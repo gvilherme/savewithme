@@ -2,10 +2,10 @@
 data "aws_ami" "al2023_arm" {
   most_recent = true
   owners      = ["137112412989"] # Amazon
-  filter { 
-            name = "name"
-            values = ["al2023-ami-*-kernel-*-arm64"] 
-        }
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-kernel-*-arm64"]
+  }
 }
 
 resource "aws_instance" "app" {
@@ -16,10 +16,10 @@ resource "aws_instance" "app" {
   key_name               = var.key_name
   iam_instance_profile   = aws_iam_instance_profile.app_profile.name
 
-  root_block_device { 
-    volume_type = "gp3" 
-    volume_size = 20 
-    }
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 20
+  }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
     region        = var.region

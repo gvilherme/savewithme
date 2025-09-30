@@ -3,7 +3,7 @@ resource "aws_scheduler_schedule" "start" {
   name                         = "${local.name_prefix}-start"
   schedule_expression          = var.schedule_cron_start
   schedule_expression_timezone = var.schedule_timezone
-  flexible_time_window { mode  = "OFF" }
+  flexible_time_window { mode = "OFF" }
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:ec2:startInstances"
     role_arn = aws_iam_role.sched_role.arn
@@ -16,7 +16,7 @@ resource "aws_scheduler_schedule" "stop" {
   name                         = "${local.name_prefix}-stop"
   schedule_expression          = var.schedule_cron_stop
   schedule_expression_timezone = var.schedule_timezone
-  flexible_time_window { mode  = "OFF" }
+  flexible_time_window { mode = "OFF" }
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:ec2:stopInstances"
     role_arn = aws_iam_role.sched_role.arn

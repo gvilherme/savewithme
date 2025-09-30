@@ -12,7 +12,7 @@ usermod -aG docker ec2-user || true
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ]; then COMP_ARCH=arm64; else COMP_ARCH=amd64; fi
 install -d /usr/local/lib/docker/cli-plugins
-curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${COMP_ARCH}" \
+curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$${COMP_ARCH}" \
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 

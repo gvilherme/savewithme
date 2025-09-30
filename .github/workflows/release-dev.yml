@@ -128,10 +128,11 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform plan
-        run: terraform plan \
-          -var-file "./inventories/${{ startsWith(github.ref,'refs/heads/main') && 'prod' || 'dev' }}.tfvars" \
-          -var "image_ref=${{ needs.build-and-push.outputs.image_ref }}" \
-          -out tfplan
+        run: |
+          terraform plan \
+            -var-file="./inventories/${{ startsWith(github.ref,'refs/heads/main') && 'prod' || 'dev' }}.tfvars" \
+            -var="image_ref=${{ needs.build-and-push.outputs.image_ref }}" \
+            -out=tfplan
 
       - name: Terraform apply
         run: terraform apply -auto-approve tfplan

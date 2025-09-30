@@ -75,9 +75,9 @@ jobs:
           echo "TMP_DIR=$TMP_DIR" >> $GITHUB_OUTPUT
           rsync -a infra/terraform/ "$TMP_DIR"/
 
-          # 2) Remove o bloco `backend "s3" { ... }` APENAS na cópia
-          # (remove um bloco com uma chave de profundidade 1)
-          perl -0777 -pe 's/^\s*backend\s+"s3"\s*\{[^}]*\}\s*\n//s' -i "$TMP_DIR"/providers.tf
+          rm -f "$TMP_DIR"/providers.tf
+          touch "$TMP_DIR"/providers.tf
+          echo 'terraform { required_providers { aws = { source = "hashicorp/aws" } } }' > "$TMP_DIR"/providers.tf
 
           # Sanity: mostra o providers.tf resultante
           echo "----- providers.tf (shadow) -----"

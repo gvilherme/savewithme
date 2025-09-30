@@ -58,7 +58,9 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 0) Zera qualquer init anterior nesse repositório
+      # 0) Remove backend config e zera qualquer init anterior
+      - name: Remove backend config (se existir)
+        run: rm -f infra/terraform/backend.tf infra/terraform/backend.hcl
       - name: Clean previous Terraform init artifacts
         run: |
           rm -rf infra/terraform/.terraform infra/terraform/.terraform.lock.hcl

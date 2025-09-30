@@ -1,18 +1,30 @@
-name: PR Title Check
+name: Validate PR Title (Conventional Commits)
+
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize]
-    branches:
-      - dev
-      - main
+    types: [opened, edited, synchronize]
 
 jobs:
   check-title:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: Check PR title
-        uses: amitsingh-007/validate-pr-title-action@v2.3.0
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          regex: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\([\w\-]+\))?: .{1,50}'
-          error-message: 'PR title must follow Conventional Commits format: <type>(<scope>): <description>. Allowed types: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert.'
+          # tipos aceitos (adapte se precisar)
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+          # escopo é opcional, mas força o formato <tipo>(<escopo opcional>): <mensagem>
+          requireScope: false
+          # breaking change pode ser sinalizado com !
+          allowBreakingChanges: true

@@ -94,7 +94,7 @@ jobs:
             -var "image_ref=${IMAGE_REF_DUMMY}"
 
   open-pr:
-    needs: check-title
+    needs: tf-check
     if: ${{ needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:

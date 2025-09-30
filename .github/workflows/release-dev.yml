@@ -24,6 +24,7 @@ env:
 
 jobs:
   test:
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
     environment: dev
     runs-on: ubuntu-latest
     steps:
@@ -43,6 +44,7 @@ jobs:
           mvn -B -ntp -DskipTests checkstyle:check || true
 
   build-and-push:
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
     needs: test
     environment: ${{ env.ENV_NAME }}
     runs-on: ubuntu-latest
@@ -98,6 +100,7 @@ jobs:
           echo "Resolved image: ${IMAGE}@${DIGEST}"
 
   terraform:
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
     needs: build-and-push
     runs-on: ubuntu-latest
     defaults:

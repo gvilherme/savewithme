@@ -105,7 +105,7 @@ jobs:
         run: |
           terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} plan \
             -input=false -no-color \
-            -var-file="$TMP_DIR/inventories/dev.tfvars" \
+            -var-file="${{ steps.shadow.outputs.TMP_DIR }}/inventories/dev.tfvars" \
             -var="image_ref=${IMAGE_REF_DUMMY}"
 
   open-pr:

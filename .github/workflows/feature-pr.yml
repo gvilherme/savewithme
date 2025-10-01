@@ -76,8 +76,15 @@ jobs:
           rsync -a infra/terraform/ "$TMP_DIR"/
 
           rm -f "$TMP_DIR"/providers.tf
-          touch "$TMP_DIR"/providers.tf
-          echo 'terraform { required_providers { aws = { source = "hashicorp/aws" } } }' > "$TMP_DIR"/providers.tf
+          cat > "$TMP_DIR"/providers.tf <<EOF
+          terraform {
+            required_providers {
+              aws = {
+                source  = "hashicorp/aws"
+              }
+            }
+          }
+          EOF
 
           # Sanity: mostra o providers.tf resultante
           echo "----- providers.tf (shadow) -----"

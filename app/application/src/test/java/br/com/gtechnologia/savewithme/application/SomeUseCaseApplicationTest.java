@@ -1,7 +1,7 @@
 package br.com.gtechnologia.savewithme.application;
 
 
-class SaveWithMeApplication {
+class SomeUseCaseApplicationTest {
 
     void contextLoads() {
     }

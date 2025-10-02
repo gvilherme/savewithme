@@ -5,19 +5,19 @@ set -euxo pipefail
 timedatectl set-timezone America/Sao_Paulo || true
 dnf update -y
 dnf install -y docker awscli git || true
+dnf install -y cronie
 systemctl enable --now docker
+systemctl enable --now crond
 usermod -aG docker ec2-user || true
 
 # 1.1) Compose V2 via binário oficial (ARM64/AMD64)
-ARCH=$(uname -m)
-if [ "$ARCH" = "aarch64" ]; then COMP_ARCH=arm64; else COMP_ARCH=amd64; fi
-install -d /usr/local/lib/docker/cli-plugins
-curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$${COMP_ARCH}" \
-  -o /usr/local/lib/docker/cli-plugins/docker-compose
-chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+docker-compose version
 
 # 2) Código do app (branch dev)
-su - ec2-user -c "mkdir -p /opt/savewithme"
+mkdir -p /opt/savewithme
+chown ec2-user:ec2-user /opt/savewithme
 cd /opt/savewithme
 if [ ! -d ".git" ]; then
   su - ec2-user -c "cd /opt/savewithme && git clone https://github.com/gvilherme/savewithme.git . && git checkout dev"
@@ -28,7 +28,7 @@ fi
 # 3) .env para o Compose (lido automaticamente pelo Compose)
 #    - IMAGE_REF: digest exato vindo do Terraform
 #    - SPRING_PROFILES_ACTIVE: controla o profile (pode mudar via inventories/*)
-cat >/opt/savewithme/.env <<'ENV'
+cat >/opt/savewithme/infra/docker/.env <<'ENV'
 IMAGE_REF=${image_ref}
 SPRING_PROFILES_ACTIVE=dev
 DB_NAME=savewithme
@@ -40,7 +40,7 @@ ENV
 #    - Força a imagem do app por digest
 #    - (Opcional) sobrescreve profile pelo .env
 #    * Não mexemos em 'db.ports' aqui para evitar duplicidade; SG já bloqueia 5432 externo.
-cat >/opt/savewithme/compose.override.yaml <<'YAML'
+cat >/opt/savewithme/infra/docker/compose.override.yaml <<'YAML'
 services:
   app:
     image: "$${IMAGE_REF}"
@@ -53,9 +53,9 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region 
 aws ecr get-login-password --region ${region} \
   | docker login --username AWS --password-stdin $${ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com
 
-cd /opt/savewithme
-docker compose -f compose.yaml -f compose.override.yaml pull
-docker compose -f compose.yaml -f compose.override.yaml up -d --no-build
+cd /opt/savewithme/infra/docker
+docker-compose -f compose.yaml -f compose.override.yaml pull
+docker-compose -f compose.yaml -f compose.override.yaml up -d --no-build
 
 # 6) Script de backup pg_dump -> S3 (formato custom -Fc)
 cat >/usr/local/bin/pg_backup_s3.sh <<'SH'
@@ -68,7 +68,7 @@ DB_PORT="$${DB_PORT:-5432}"
 TS=$(date +%F-%H%M)
 OUT="/tmp/$${DB_NAME}-$${TS}.dump"
 
-CID=$(docker compose -f /opt/savewithme/compose.yaml -f /opt/savewithme/compose.override.yaml ps -q db)
+CID=$(docker-compose -f /opt/savewithme/infra/docker/compose.yaml -f /opt/savewithme/infra/docker/compose.override.yaml ps -q db)
 [ -z "$CID" ] && { echo "DB container not found (service 'db')."; exit 1; }
 
 # Executa pg_dump dentro do container do Postgres

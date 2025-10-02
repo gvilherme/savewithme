@@ -111,18 +111,18 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Generate backend.hcl
+      - name: Generate backend.config
         run: |
-          cat > backend.hcl <<EOF
+          cat > backend.config <<EOF
           bucket  = "${{ vars.TF_STATE_BUCKET }}"
-          key     = "env/${{ vars.ENV_NAME }}/terraform.tfstate"
+          key     = "env/${{ vars.ENV_NAME }}/${{ github.repository_id }}.tfstate"
           region  = "${{ vars.AWS_REGION }}"
           encrypt = true
           EOF
-          cat backend.hcl
+          cat backend.config
 
       - name: Terraform init (S3 backend)
-        run: terraform init -reconfigure -backend-config=backend.hcl
+        run: terraform init -reconfigure -backend-config=backend.config
 
       - name: Terraform validate
         run: terraform validate -no-color

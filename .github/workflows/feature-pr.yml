@@ -75,8 +75,8 @@ jobs:
           echo "TMP_DIR=$TMP_DIR" >> $GITHUB_OUTPUT
           rsync -a infra/terraform/ "$TMP_DIR"/
 
-          rm -f "$TMP_DIR"/providers.tf
-          cat > "$TMP_DIR"/providers.tf <<EOF
+          rm -f "$TMP_DIR"/state.tf
+          cat > "$TMP_DIR"/state.tf <<EOF
           terraform {
             required_providers {
               aws = {
@@ -86,9 +86,9 @@ jobs:
           }
           EOF
 
-          # Sanity: mostra o providers.tf resultante
-          echo "----- providers.tf (shadow) -----"
-          sed -n '1,120p' "$TMP_DIR"/providers.tf
+          # Sanity: mostra o state.tf resultante
+          echo "----- state.tf (shadow) -----"
+          sed -n '1,120p' "$TMP_DIR"/state.tf
 
       # 3) Init local (sem backend) na cópia
       - name: Terraform init (local, shadow)

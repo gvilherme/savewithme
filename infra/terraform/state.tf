@@ -4,9 +4,9 @@ terraform {
     aws = { source = "hashicorp/aws", version = "~> 6.0" }
   }
   backend "s3" {
-    bucket = "" 
-    key    = ""
-    region = ""
-    profile= ""
+    bucket  = ""
+    key     = ""
+    region  = ""
+    profile = ""
   }
 }

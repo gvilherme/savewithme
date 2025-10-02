@@ -61,7 +61,7 @@
                         <enabled>true</enabled>
                     </layers>
                     <!-- Opcional: seta explicitamente a main -->
-                    <mainClass>br.com.gtechnologia.savewithme.application.SaveWithMeApplication</mainClass>
+                    <mainClass>br.com.gtechnologia.savewithme.bootstrap.SaveWithMeApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

@@ -1,18 +1,8 @@
 spring:
-  application:
-    name: savewithme
   datasource:
-    url: jdbc:postgresql://localhost:5432/savewithme
+    url: jdbc:postgresql://db:5432/savewithme   # <— host é o serviço do Compose
     username: savewithme
     password: savewithme
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info    # expõe só /actuator/health e /actuator/info
-  endpoint:
-    health:
-      show-details: always      # mostra detalhes no health (bom pra debug)
-  server:
-    port: 8080
+  jpa:
+    hibernate:
+      ddl-auto: update

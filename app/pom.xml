@@ -11,8 +11,7 @@
     <modules>
         <module>domain</module>
         <module>application</module>
-        <module>adapters/in/rest</module>
-        <module>adapters/out/persistence</module>
+        <module>adapters</module>
         <module>bootstrap</module>
     </modules>
 

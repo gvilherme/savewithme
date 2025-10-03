@@ -15,12 +15,7 @@
         <!-- seus módulos/adapters -->
         <dependency>
             <groupId>br.com.gtechnologia.savewithme</groupId>
-            <artifactId>adapters-in-rest</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>br.com.gtechnologia.savewithme</groupId>
-            <artifactId>adapters-out-persistence</artifactId>
+            <artifactId>adapters</artifactId>
             <version>${project.version}</version>
         </dependency>
 

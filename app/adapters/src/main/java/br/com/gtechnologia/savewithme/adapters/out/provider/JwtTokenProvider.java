@@ -1,7 +1,9 @@
 package br.com.gtechnologia.savewithme.adapters.out.provider;
 
+import br.com.gtechnologia.domain.model.Email;
 import br.com.gtechnologia.domain.model.User;
 import br.com.gtechnologia.domain.model.UserId;
+import br.com.gtechnologia.domain.model.UserName;
 import br.com.gtechnologia.savewithme.application.contracts.DecodedToken;
 import br.com.gtechnologia.savewithme.application.ports.out.provider.TokenProvider;
 
@@ -30,6 +32,27 @@ public class JwtTokenProvider implements TokenProvider {
     @Override
     public DecodedToken verify(String token) {
         Jwt jwt = decoder.decode(token);
-        return new DecodedToken(new UserId(UUID.fromString(jwt.getSubject())), jwt.getTokenValue(), this, jwt.getExpiresAt(), jwt.getIssuedAt(), new String[]{});
+
+        // Check expiration
+        if (jwt.getExpiresAt() != null && jwt.getExpiresAt().isBefore(Instant.now())) {
+            throw new JwtException("Token expired");
+        }
+
+        // Validate issuer
+        if (!"savewithme".equals(jwt.getIssuer().toString())) {
+            throw new JwtException("Issuer inválido");
+        }
+
+        // Validate required claims
+        String emailClaim = jwt.getClaim("email");
+        String userNameClaim = jwt.getClaim("user_name");
+        if (emailClaim == null || userNameClaim == null) {
+            throw new JwtException("Missing required claims");
+        }
+
+        UserId userId = new UserId(UUID.fromString(jwt.getSubject()));
+        Email email = new Email(jwt.getClaim("email"));
+        UserName uName = new UserName(jwt.getClaim("user_name"));
+        return new DecodedToken(new User(userId, email, uName, null), jwt.getTokenValue(), this, jwt.getExpiresAt(), jwt.getIssuedAt(), new String[]{});
     }
 }

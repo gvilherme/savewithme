@@ -11,8 +11,7 @@ WORKDIR /build
 COPY app/pom.xml app/pom.xml
 COPY app/domain/pom.xml app/domain/pom.xml
 COPY app/application/pom.xml app/application/pom.xml
-COPY app/adapters/in/rest/pom.xml app/adapters/in/rest/pom.xml
-COPY app/adapters/out/persistence/pom.xml app/adapters/out/persistence/pom.xml
+COPY app/adapters/pom.xml app/adapters/pom.xml
 COPY app/bootstrap/pom.xml app/bootstrap/pom.xml
 RUN --mount=type=cache,target=/root/.m2 mvn -f app/pom.xml -B -ntp -DskipTests package || true
 

@@ -16,7 +16,7 @@ public final class User {
         this.id = Objects.requireNonNull(id);
         this.email = Objects.requireNonNull(email);
         this.userName = Objects.requireNonNull(username);
-        this.passwordHash = Objects.requireNonNull(passwordHash);
+        this.passwordHash = passwordHash;
     }
 
     public static class Builder {

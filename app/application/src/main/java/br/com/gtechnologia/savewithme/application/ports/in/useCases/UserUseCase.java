@@ -34,11 +34,17 @@ public class UserUseCase {
     }
 
     public AuthResult handleAuthentication(AuthenticateUserCommand command) {
-        var email = new Email(command.email());
-        var username = new UserName(command.username());
-        var user = repo.findByEmail(email)
-                .or(() -> repo.findByUsername(username))
-                .orElseThrow(() -> new IllegalArgumentException("invalid credentials"));
+        User user = null;
+        if (command.email() != null && !command.email().isBlank()) {
+            var email = new Email(command.email());
+            user = repo.findByEmail(email).orElse(null);
+        }
+        else if (user == null && command.username() != null && !command.username().isBlank()) {
+            var username = new UserName(command.username());
+            user = repo.findByUsername(username).orElse(null);
+        } else {
+            throw new IllegalArgumentException("fill email or username");
+        }
         if (!hasher.verify(command.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("invalid credentials");
         }

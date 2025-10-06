@@ -31,6 +31,8 @@ fi
 cat >/opt/savewithme/infra/docker/.env <<'ENV'
 IMAGE_REF=${image_ref}
 SPRING_PROFILES_ACTIVE=dev
+JWT_PRIVATE_PEM=${rsa_private_key}
+JWT_PUBLIC_PEM=${rsa_public_key}
 DB_NAME=savewithme
 DB_USER=savewithme
 DB_PORT=5432

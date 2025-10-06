@@ -9,8 +9,6 @@ import br.com.gtechnologia.savewithme.adapters.out.persistence.util.UserNameConv
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.UUID;
-
 @Entity
 @Table(name = "users")
 @Getter

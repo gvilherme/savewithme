@@ -25,7 +25,7 @@ public class JwtTokenProvider implements TokenProvider {
     @Override
     public String issue(User user) {
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder().issuer("savewithme").subject(user.getId().value().toString()).claim("email", user.getEmail().value()).issuedAt(now).expiresAt(now.plus(Duration.ofHours(2))).build();
+        JwtClaimsSet claims = JwtClaimsSet.builder().issuer("https://savewithme.app").subject(user.getId().value().toString()).claim("email", user.getEmail().value()).claim("username", user.getUserName().value()).issuedAt(now).expiresAt(now.plus(Duration.ofHours(2))).build();
         return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
     }
 
@@ -39,20 +39,20 @@ public class JwtTokenProvider implements TokenProvider {
         }
 
         // Validate issuer
-        if (!"savewithme".equals(jwt.getIssuer().toString())) {
+        if (!"https://savewithme.app".equals(jwt.getIssuer().toString())) {
             throw new JwtException("Issuer inválido");
         }
 
         // Validate required claims
         String emailClaim = jwt.getClaim("email");
-        String userNameClaim = jwt.getClaim("user_name");
+        String userNameClaim = jwt.getClaim("username");
         if (emailClaim == null || userNameClaim == null) {
             throw new JwtException("Missing required claims");
         }
 
         UserId userId = new UserId(UUID.fromString(jwt.getSubject()));
         Email email = new Email(jwt.getClaim("email"));
-        UserName uName = new UserName(jwt.getClaim("user_name"));
+        UserName uName = new UserName(jwt.getClaim("username"));
         return new DecodedToken(new User(userId, email, uName, null), jwt.getTokenValue(), this, jwt.getExpiresAt(), jwt.getIssuedAt(), new String[]{});
     }
 }

@@ -8,6 +8,10 @@ data "aws_ami" "al2023_arm" {
   }
 }
 
+data "aws_secretsmanager_secret_version" "rsa_key" {
+  secret_id = var.rsa_key_secret_arn
+}
+
 resource "aws_instance" "app" {
   ami                    = data.aws_ami.al2023_arm.id
   instance_type          = var.instance_type
@@ -25,6 +29,8 @@ resource "aws_instance" "app" {
     region        = var.region
     image_ref     = var.image_ref
     backup_bucket = var.backup_bucket
+    rsa_private_key = data.aws_secretsmanager_secret_version.rsa_key.secret_string
+    rsa_public_key  = var.rsa_public_key
   }))
 
   tags = merge(local.common_tags, { Name = local.name_prefix })

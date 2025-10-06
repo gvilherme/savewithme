@@ -15,7 +15,7 @@ d/7M14qj1FqLVmgugUWUWuzs51pouUOCDMxfAdiWuQ4na/MRijcxkdB1T7Zo/K3k
 GwIDAQAB
 -----END PUBLIC KEY-----
 """
-rsa_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123
+rsa_key_secret_arn = "arn:aws:secretsmanager:us-east-1:520218704533:secret:dev/savewithme/privatekey-avpskg"
 
 allowed_http_cidr = "177.181.4.242/32" 
 allowed_ssh_cidr  = "177.181.4.242/32"

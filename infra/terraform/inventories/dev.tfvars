@@ -4,7 +4,7 @@ env     = "dev"
 
 instance_type = "t4g.micro"
 key_name      = "myslf"
-rsa_public_key = """
+rsa_public_key = <<EOF
 -----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmHjTVWV1xhNL5gvoPmfe
 /h6lQLpGr2plIJPwnfczephEuhVWxW8G5uwUd2PVmWBtdNRmNoruRoN3l6LicSqF
@@ -14,7 +14,7 @@ d/7M14qj1FqLVmgugUWUWuzs51pouUOCDMxfAdiWuQ4na/MRijcxkdB1T7Zo/K3k
 586yD6hM86ZTi+XAU37+KKeS6gToc6JJkbRkNITBl+h6Gv/nFDGQFwO261d1qcQc
 GwIDAQAB
 -----END PUBLIC KEY-----
-"""
+EOF
 rsa_key_secret_arn = "arn:aws:secretsmanager:us-east-1:520218704533:secret:dev/savewithme/privatekey-avpskg"
 
 allowed_http_cidr = "177.181.4.242/32" 

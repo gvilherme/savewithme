@@ -26,9 +26,9 @@ resource "aws_instance" "app" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
-    region        = var.region
-    image_ref     = var.image_ref
-    backup_bucket = var.backup_bucket
+    region          = var.region
+    image_ref       = var.image_ref
+    backup_bucket   = var.backup_bucket
     rsa_private_key = data.aws_secretsmanager_secret_version.rsa_key.secret_string
     rsa_public_key  = var.rsa_public_key
   }))

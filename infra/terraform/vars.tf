@@ -8,6 +8,9 @@ variable "key_name" { type = string }
 variable "allowed_http_cidr" { type = string }
 variable "allowed_ssh_cidr" { type = string }
 
+variable "rsa_key_secret_arn" { type = string }
+variable "rsa_public_key" { type = string }
+
 # Imagem do app por DIGEST (imutável): <acct>.dkr.ecr.<reg>.amazonaws.com/repo@sha256:...
 variable "image_ref" { type = string }
 

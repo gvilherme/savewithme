@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://db:5432/savewithme   # <— host é o serviço do Compose
+    url: jdbc:postgresql://localhost:5432/savewithme
     username: savewithme
     password: savewithme
   jpa:

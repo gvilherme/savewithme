@@ -15,13 +15,17 @@
         <!-- seus módulos/adapters -->
         <dependency>
             <groupId>br.com.gtechnologia.savewithme</groupId>
-            <artifactId>adapters-in-rest</artifactId>
+            <artifactId>adapters</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>br.com.gtechnologia.savewithme</groupId>
-            <artifactId>adapters-out-persistence</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>10.13.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
         <!-- spring boot runtime -->

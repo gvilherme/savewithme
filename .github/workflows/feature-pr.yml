@@ -1,0 +1,158 @@
+name: Feature → PR to dev
+
+on:
+  push:
+    branches:
+      - "feature/**"
+
+concurrency:
+  group: feature-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || 21 }}
+          cache: maven
+      - name: Unit tests
+        working-directory: app
+        run: mvn -B -U -ntp -DskipITs verify
+
+  lint:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint (Spotless & Checkstyle)
+        working-directory: app
+        run: |
+          mvn -B -ntp -DskipTests spotless:check || true
+          mvn -B -ntp -DskipTests checkstyle:check || true
+
+  tf-check:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    env:
+      TF_DATA_DIR: ${{ github.workspace }}/.tfdata # isola dados do Terraform por job
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS creds (OIDC, read-only)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.ROLE_ARN_PLAN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # (opcional) Auto-fix de fmt no repo original
+      - name: Terraform fmt (auto-fix no repo)
+        run: terraform -chdir=infra/terraform fmt -recursive -no-color
+      - name: Auto-commit Terraform fmt
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(terraform): fmt (auto)"
+          file_pattern: "infra/**/*.tf"
+
+      # 1) Shadow copy da pasta de Terraform
+      - name: Make shadow copy of Terraform dir
+        id: shadow
+        run: |
+          TMP_DIR=$(mktemp -d)
+          echo "TMP_DIR=$TMP_DIR" >> $GITHUB_OUTPUT
+          rsync -a infra/terraform/ "$TMP_DIR"/
+
+          rm -f "$TMP_DIR"/state.tf
+          cat > "$TMP_DIR"/state.tf <<EOF
+          terraform {
+            required_providers {
+              aws = {
+                source  = "hashicorp/aws"
+              }
+            }
+          }
+          EOF
+
+          # Sanity: mostra o state.tf resultante
+          echo "----- state.tf (shadow) -----"
+          sed -n '1,120p' "$TMP_DIR"/state.tf
+
+      # 3) Init local (sem backend) na cópia
+      - name: Terraform init (local, shadow)
+        run: terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} init -backend=false -reconfigure -input=false -no-color
+
+      # 4) Validate
+      - name: Terraform validate (shadow)
+        run: terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} validate -no-color
+
+      # 5) Plan local (shadow) usando tfvars do repo
+      - name: Terraform plan (shadow, no apply)
+        env:
+          IMAGE_REF_DUMMY: "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        run: |
+          terraform -chdir=${{ steps.shadow.outputs.TMP_DIR }} plan \
+            -input=false -no-color \
+            -var-file="${{ steps.shadow.outputs.TMP_DIR }}/inventories/dev.tfvars" \
+            -var="image_ref=${IMAGE_REF_DUMMY}"
+
+  open-pr:
+    needs: tf-check
+    if: ${{ needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure PR from feature → dev exists (or create)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const featureRef = context.ref.replace('refs/heads/','');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            // Search existing open PRs from this branch to dev
+            const { data: prs } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'dev', head: `${owner}:${featureRef}`
+            });
+            if (prs.length > 0) {
+              core.info(`PR already exists: #${prs[0].number}`);
+              return;
+            }
+            // Use first commit message line as title fallback
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner, repo, sha: featureRef, per_page: 1
+            });
+            const defaultTitle = commits[0]?.commit?.message?.split('\n')[0] || `feat: ${featureRef}`;
+            const prTitle = defaultTitle;
+            const prBody = [
+              '### Objetivo',
+              '- PR automático de `feature/*` para `dev` após testes unitários passarem.',
+              '',
+              '### Checklist',
+              '- [ ] Testes unitários verdes',
+              '- [ ] Descrição clara do escopo',
+              '- [ ] Segue Conventional Commits',
+            ].join('\n');
+            const { data: pr } = await github.rest.pulls.create({
+              owner, repo, title: prTitle, head: featureRef, base: 'dev', body: prBody, draft: false
+            });
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: pr.number, labels: ['area:domain','type:feat']
+            });
+            core.info(`Opened PR #${pr.number} from ${featureRef} -> dev`);

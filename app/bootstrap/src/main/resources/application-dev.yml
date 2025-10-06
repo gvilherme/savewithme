@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/savewithme   # <— host é o serviço do Compose
+    username: savewithme
+    password: savewithme
+  jpa:
+    hibernate:
+      ddl-auto: validate

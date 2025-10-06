@@ -1,0 +1,1 @@
+create table users (username varchar(32) unique, password_hash varchar(64), email varchar(255) unique, id bytea not null, primary key (id));

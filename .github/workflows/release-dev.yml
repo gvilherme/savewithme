@@ -1,0 +1,187 @@
+name: release-dev
+
+on:
+  push:
+    branches: ["main", "dev"]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
+    environment: dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION }}
+          cache: maven
+      - name: Unit tests
+        working-directory: app
+        run: mvn -B -U -ntp -DskipITs verify
+      - name: Lint (Spotless & Checkstyle)
+        working-directory: app
+        run: |
+          mvn -B -ntp -DskipTests spotless:check || true
+          mvn -B -ntp -DskipTests checkstyle:check || true
+
+  build-and-push:
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
+    needs: test
+    environment: dev
+    runs-on: ubuntu-latest
+    outputs:
+      image_ref: ${{ steps.record.outputs.image_ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build JAR
+        working-directory: app
+        run: mvn -B -U -ntp -DskipTests package
+
+      - name: Build + Push multi-arch (manifest)
+        working-directory: infra/docker
+        env:
+          IMAGE: ${{ vars.AWS_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO }}
+          TAG: ${{ github.sha }}
+        run: |
+          docker buildx create --use
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${IMAGE}:${TAG} \
+            -t ${IMAGE}:latest \
+            --build-arg BASE_IMAGE="${{ vars.DOCKER_IMAGE_BASE }}" \
+            -f Dockerfile ../../ \
+            --push \
+            --cache-to type=registry,ref=${IMAGE}:cache,mode=max \
+            --cache-from type=registry,ref=${IMAGE}:cache
+
+      - name: Resolve digest (immutable ref)
+        id: record
+        env:
+          IMAGE: ${{ vars.AWS_ACCOUNT }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO }}
+          TAG: ${{ github.sha }}
+        run: |
+          DIGEST=$(docker buildx imagetools inspect ${IMAGE}:${TAG} | awk '/Digest:/ {print $2; exit}')
+          echo "image_ref=${IMAGE}@${DIGEST}" >> $GITHUB_OUTPUT
+          echo "Resolved image: ${IMAGE}@${DIGEST}"
+
+  terraform:
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' }}
+    needs: build-and-push
+    environment: dev
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS creds (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Generate backend.config
+        run: |
+          cat > backend.config <<EOF
+          bucket  = "${{ vars.TF_STATE_BUCKET }}"
+          key     = "env/${{ vars.ENV_NAME }}/${{ github.repository_id }}.tfstate"
+          region  = "${{ vars.AWS_REGION }}"
+          encrypt = true
+          EOF
+          cat backend.config
+
+      - name: Terraform init (S3 backend)
+        run: terraform init -reconfigure -backend-config=backend.config
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        run: |
+          terraform plan \
+            -var-file="./inventories/${{ startsWith(github.ref,'refs/heads/main') && 'prod' || 'dev' }}.tfvars" \
+            -var="image_ref=${{ needs.build-and-push.outputs.image_ref }}" \
+            -out=tfplan
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve tfplan
+
+  open-pr:
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' && startsWith(github.ref,'refs/heads/dev') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PR from dev → main exists (or create)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const devRef = context.ref.replace('refs/heads/','');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'main', head: `${owner}:${devRef}`
+            });
+            if (prs.length > 0) {
+              core.info(`PR already exists: #${prs[0].number}`);
+              return;
+            }
+
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner, repo, sha: devRef, per_page: 1
+            });
+            const defaultTitle = commits[0]?.commit?.message?.split('\n')[0] || `feat: ${devRef}`;
+            const body = [
+              '### Objetivo',
+              '- PR automático de `dev` para `main` após pipeline verde.',
+              '',
+              '### Checklist',
+              '- [ ] Testes unitários verdes',
+              '- [ ] Descrição clara do escopo',
+              '- [ ] Conventional Commits',
+            ].join('\n');
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner, repo, title: defaultTitle, head: devRef, base: 'main', body, draft: false
+            });
+
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: pr.number, labels: ['area:domain','type:feat']
+            });
+
+            core.info(`Opened PR #${pr.number} from ${devRef} -> main`);

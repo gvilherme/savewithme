@@ -19,6 +19,18 @@ public final class User {
         this.passwordHash = passwordHash;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(id, user.id) && Objects.equals(email, user.email) && Objects.equals(userName, user.userName) && Objects.equals(passwordHash, user.passwordHash);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, email, userName, passwordHash);
+    }
+
     public static class Builder {
         private Email email;
         private String passwordHash;

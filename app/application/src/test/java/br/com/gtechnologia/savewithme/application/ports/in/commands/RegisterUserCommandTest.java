@@ -1,0 +1,33 @@
+package br.com.gtechnologia.savewithme.application.ports.in.commands;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class RegisterUserCommandTest {
+
+    @Test
+    void constructorAndGettersShouldWork() {
+        var command = new RegisterUserCommand("user", "email@example.com", "password123");
+        assertEquals("user", command.username());
+        assertEquals("email@example.com", command.email());
+        assertEquals("password123", command.password());
+    }
+
+    @Test
+    void equalsAndHashCodeShouldWork() {
+        var c1 = new RegisterUserCommand("user", "email@example.com", "password123");
+        var c2 = new RegisterUserCommand("user", "email@example.com", "password123");
+        assertEquals(c1, c2);
+        assertEquals(c1.hashCode(), c2.hashCode());
+    }
+
+    @Test
+    void toStringShouldContainFieldValues() {
+        var command = new RegisterUserCommand("user", "email@example.com", "password123");
+        var str = command.toString();
+        assertTrue(str.contains("user"));
+        assertTrue(str.contains("email@example.com"));
+        assertTrue(str.contains("password123"));
+    }
+}

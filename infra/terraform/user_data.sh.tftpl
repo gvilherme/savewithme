@@ -31,8 +31,6 @@ fi
 cat >/opt/savewithme/infra/docker/.env <<'ENV'
 IMAGE_REF=${image_ref}
 SPRING_PROFILES_ACTIVE=dev
-JWT_PRIVATE_PEM=${rsa_private_key}
-JWT_PUBLIC_PEM=${rsa_public_key}
 DB_NAME=savewithme
 DB_USER=savewithme
 DB_PORT=5432
@@ -48,6 +46,10 @@ services:
     image: "$${IMAGE_REF}"
     environment:
       SPRING_PROFILES_ACTIVE: "$${SPRING_PROFILES_ACTIVE}"
+      JWT_PRIVATE_PEM: |
+        ${rsa_private_key}
+      JWT_PUBLIC_PEM: |
+        ${rsa_public_key}
 YAML
 
 # 5) Login no ECR e subir containers usando base + override, SEM build
